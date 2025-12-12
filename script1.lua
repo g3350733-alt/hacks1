@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local backpack = player:WaitForChild("Backpack")
 
--- SEARCH AREAS (add any others you use)
+-- SEARCH AREAS (add more if needed)
 local SEARCH_AREAS = {
     game.Workspace,
     game.ReplicatedStorage,
@@ -19,14 +19,13 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 350)
-frame.Position = UDim2.new(0, 20, 0.4, -175)
+frame.Size = UDim2.new(0, 300, 0, 380)
+frame.Position = UDim2.new(0, 20, 0.35, -175)
 frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
-local corner = Instance.new("UICorner", frame)
-corner.CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 40)
@@ -37,9 +36,23 @@ title.TextSize = 24
 title.TextColor3 = Color3.fromRGB(255,255,255)
 title.Parent = frame
 
+-- SEARCH BAR
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, -20, 0, 30)
+searchBox.Position = UDim2.new(0, 10, 0, 45)
+searchBox.PlaceholderText = "Search tools..."
+searchBox.Text = ""
+searchBox.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+searchBox.TextColor3 = Color3.fromRGB(255,255,255)
+searchBox.Font = Enum.Font.SourceSans
+searchBox.TextSize = 20
+searchBox.Parent = frame
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 6)
+
+-- TOOL LIST AREA
 local scroll = Instance.new("ScrollingFrame")
-scroll.Size = UDim2.new(1, -10, 1, -50)
-scroll.Position = UDim2.new(0, 5, 0, 45)
+scroll.Size = UDim2.new(1, -10, 1, -90)
+scroll.Position = UDim2.new(0, 5, 0, 80)
 scroll.CanvasSize = UDim2.new(0,0,0,0)
 scroll.ScrollBarThickness = 6
 scroll.BackgroundColor3 = Color3.fromRGB(30,30,30)
@@ -68,60 +81,72 @@ local function getAllTools()
     return foundTools
 end
 
+local allTools = getAllTools()
+
 ---------------------------------------------------------
--- EQUIP TOOL (clone if not in backpack)
+-- EQUIP TOOL
 ---------------------------------------------------------
 local function equipTool(tool)
     local char = player.Character or player.CharacterAdded:Wait()
 
     local toolToEquip = backpack:FindFirstChild(tool.Name)
-
     if not toolToEquip then
         toolToEquip = tool:Clone()
         toolToEquip.Parent = backpack
     end
 
     toolToEquip.Parent = char
-    print("Equipped:", toolToEquip.Name)
 end
 
 ---------------------------------------------------------
--- BUILD GUI LIST
+-- BUILD TOOL LIST WITH FILTERING
 ---------------------------------------------------------
-local function refreshGUI()
-    -- Clear previous list
+local function refreshList(search)
+    search = string.lower(search or "")
+
+    -- Clear previous buttons
     for _, child in ipairs(scroll:GetChildren()) do
         if child:IsA("TextButton") then
             child:Destroy()
         end
     end
 
-    local tools = getAllTools()
+    for _, tool in ipairs(allTools) do
+        local toolName = string.lower(tool.Name)
 
-    for _, tool in ipairs(tools) do
-        local button = Instance.new("TextButton")
-        button.Size = UDim2.new(1, -10, 0, 30)
-        button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        button.Font = Enum.Font.SourceSans
-        button.TextSize = 20
-        button.Text = tool.Name
-        button.Parent = scroll
+        -- Filter by search
+        if toolName:find(search, 1, true) then
+            local button = Instance.new("TextButton")
+            button.Size = UDim2.new(1, -10, 0, 30)
+            button.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            button.TextColor3 = Color3.fromRGB(255,255,255)
+            button.Font = Enum.Font.SourceSans
+            button.TextSize = 20
+            button.Text = tool.Name
+            button.Parent = scroll
 
-        button.MouseButton1Click:Connect(function()
-            equipTool(tool)
-        end)
+            button.MouseButton1Click:Connect(function()
+                equipTool(tool)
+            end)
+        end
     end
 
-    scroll.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 10)
+    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
 end
 
 ---------------------------------------------------------
--- INITIALIZE + REFRESH ON RESPAWN
+-- INITIAL LOAD
 ---------------------------------------------------------
-refreshGUI()
+refreshList("")
+
+---------------------------------------------------------
+-- SEARCH BAR UPDATES LIST LIVE
+---------------------------------------------------------
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    refreshList(searchBox.Text)
+end)
 
 player.CharacterAdded:Connect(function()
     task.wait(0.5)
-    refreshGUI()
+    refreshList(searchBox.Text)
 end)
