@@ -1,102 +1,167 @@
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+-- StarterPlayerScripts LocalScript
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
 local backpack = player:WaitForChild("Backpack")
 
--- SERVICES TO SEARCH
-local SEARCH_AREAS = {
-    game.Workspace,
-    game.ReplicatedStorage,
-    game.ServerStorage,
-    game.StarterPack,
-}
-
----------------------------------------------------------
--- GUI
----------------------------------------------------------
+-- GUI Creation
+local playerGui = player:WaitForChild("PlayerGui")
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "SimpleEquipGUI"
+screenGui.Name = "DevToolsGUI"
 screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.Parent = playerGui
 
+-- Main frame
 local frame = Instance.new("Frame")
-frame.AnchorPoint = Vector2.new(0.5, 0.5)
-frame.Size = UDim2.new(0, 280, 0, 140)
-frame.Position = UDim2.new(0.5, 0, 0.8, 0)
-frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+frame.Size = UDim2.new(0.4, 0, 0.6, 0)
+frame.Position = UDim2.new(0.3, 0, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+-- UI Layout
+local uiList = Instance.new("UIListLayout")
+uiList.Padding = UDim.new(0.02,0)
+uiList.FillDirection = Enum.FillDirection.Vertical
+uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+uiList.VerticalAlignment = Enum.VerticalAlignment.Top
+uiList.Parent = frame
 
--- Search box
-local textBox = Instance.new("TextBox")
-textBox.Size = UDim2.new(1, -20, 0, 45)
-textBox.Position = UDim2.new(0, 10, 0, 10)
-textBox.PlaceholderText = "Enter tool name..."
-textBox.Text = ""
-textBox.ClearTextOnFocus = false
-textBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-textBox.TextColor3 = Color3.fromRGB(255,255,255)
-textBox.Font = Enum.Font.Gotham
-textBox.TextSize = 20
-textBox.Parent = frame
-
-Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 8)
-
--- Equip button
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(1, -20, 0, 45)
-button.Position = UDim2.new(0, 10, 0, 70)
-button.Text = "Equip"
-button.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-button.TextColor3 = Color3.fromRGB(255,255,255)
-button.Font = Enum.Font.GothamBold
-button.TextSize = 20
-button.Parent = frame
-
-Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
-
----------------------------------------------------------
--- EQUIP FUNCTION (search entire game)
----------------------------------------------------------
-local function equipToolByName(name)
-    if not name or name == "" then
-        warn("No tool name entered")
-        return
-    end
-
-    -- Search all areas
-    local toolFound = nil
-    for _, area in ipairs(SEARCH_AREAS) do
-        for _, obj in ipairs(area:GetDescendants()) do
-            if obj:IsA("Tool") and obj.Name:lower() == name:lower() then
-                toolFound = obj
-                break
-            end
-        end
-        if toolFound then break end
-    end
-
-    if not toolFound then
-        warn("Tool not found in the game:", name)
-        return
-    end
-
-    local char = player.Character or player.CharacterAdded:Wait()
-    local toolToEquip = backpack:FindFirstChild(toolFound.Name)
-
-    if not toolToEquip then
-        toolToEquip = toolFound:Clone()
-        toolToEquip.Parent = backpack
-    end
-
-    toolToEquip.Parent = char
-    print("Equipped:", toolToEquip.Name)
+-- Button Creator
+local function createButton(text, callback)
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.new(0.9, 0, 0, 50)
+	button.Text = text
+	button.BackgroundColor3 = Color3.fromRGB(40,120,40)
+	button.TextColor3 = Color3.new(1,1,1)
+	button.Font = Enum.Font.SourceSansBold
+	button.TextScaled = true
+	button.Parent = frame
+	button.MouseButton1Click:Connect(callback)
+	return button
 end
 
----------------------------------------------------------
--- BUTTON CLICK
----------------------------------------------------------
-button.MouseButton1Click:Connect(function()
-    equipToolByName(textBox.Text)
+-- Slider Creator
+local function createSlider(min,max,default,callback)
+	local sliderFrame = Instance.new("Frame")
+	sliderFrame.Size = UDim2.new(0.9,0,0,60)
+	sliderFrame.BackgroundColor3 = Color3.fromRGB(70,70,70)
+	sliderFrame.Parent = frame
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1,0,0.4,0)
+	label.BackgroundTransparency = 1
+	label.Text = "Speed: "..default
+	label.TextColor3 = Color3.new(1,1,1)
+	label.TextScaled = true
+	label.Parent = sliderFrame
+
+	local slider = Instance.new("TextButton")
+	slider.Size = UDim2.new(1,0,0.6,0)
+	slider.Position = UDim2.new(0,0,0.4,0)
+	slider.BackgroundColor3 = Color3.fromRGB(100,100,100)
+	slider.Text = ""
+	slider.Parent = sliderFrame
+
+	local dragging = false
+	slider.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+		end
+	end)
+	slider.InputEnded:Connect(function(input)
+		dragging = false
+	end)
+	game:GetService("UserInputService").InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local pos = input.Position.X - slider.AbsolutePosition.X
+			pos = math.clamp(pos,0,slider.AbsoluteSize.X)
+			local val = math.floor(min + (pos/slider.AbsoluteSize.X)*(max-min))
+			callback(val)
+			label.Text = "Speed: "..val
+		end
+	end)
+	callback(default)
+	return sliderFrame
+end
+
+--================= FUNCTIONS =================
+
+-- Get All Tools
+local function giveTools()
+	local containers = {game.Workspace, game.ReplicatedStorage, game.ServerStorage}
+	for _, container in ipairs(containers) do
+		for _, obj in ipairs(container:GetDescendants()) do
+			if obj:IsA("Tool") then
+				local clone = obj:Clone()
+				clone.Parent = backpack
+			end
+		end
+	end
+end
+
+-- Fly
+local flying = false
+local flySpeed = 50
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+local function startFly()
+	flying = true
+	while flying and hrp.Parent do
+		task.wait()
+		local move = player:GetMouse()
+		local direction = (move.Hit.Position - hrp.Position)
+		direction = Vector3.new(direction.X,0,direction.Z).Unit
+		if direction.Magnitude > 0 then
+			hrp.Velocity = direction * flySpeed
+		else
+			hrp.Velocity = Vector3.new(0,0,0)
+		end
+	end
+end
+
+local function stopFly()
+	flying = false
+	hrp.Velocity = Vector3.new(0,0,0)
+end
+
+-- Noclip
+local noclip = false
+game:GetService("RunService").Stepped:Connect(function()
+	if noclip and char then
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+	end
 end)
+
+-- Speed
+local humanoid = char:WaitForChild("Humanoid")
+local function setSpeed(val)
+	humanoid.WalkSpeed = val
+end
+
+--================= BUTTONS =================
+
+createButton("Get All Tools", giveTools)
+
+local flyButton
+flyButton = createButton("Fly OFF", function()
+	if flying then
+		stopFly()
+		flyButton.Text = "Fly OFF"
+	else
+		startFly()
+		flyButton.Text = "Fly ON"
+	end
+end)
+
+local noclipButton
+noclipButton = createButton("Noclip OFF", function()
+	noclip = not noclip
+	noclipButton.Text = noclip and "Noclip ON" or "Noclip OFF"
+end)
+
+createSlider(16,200,16,setSpeed) -- Default Roblox WalkSpeed 16
+
