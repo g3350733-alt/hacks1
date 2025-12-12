@@ -2,7 +2,6 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local backpack = player:WaitForChild("Backpack")
 
--- SEARCH AREAS (add more if needed)
 local SEARCH_AREAS = {
     game.Workspace,
     game.ReplicatedStorage,
@@ -11,74 +10,76 @@ local SEARCH_AREAS = {
 }
 
 ---------------------------------------------------------
--- GUI CREATION
+-- GUI CREATION (Mobile Friendly)
 ---------------------------------------------------------
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ToolFinderGUI"
 screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 380)
-frame.Position = UDim2.new(0, 20, 0.35, -175)
+frame.AnchorPoint = Vector2.new(0.5, 0.5)
+frame.Size = UDim2.new(0.45, 0, 0.55, 0)  -- Scales well on all screens
+frame.Position = UDim2.new(0.5, 0, 0.48, 0)
 frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
+title.Size = UDim2.new(1, 0, 0, 50)
 title.BackgroundTransparency = 1
 title.Text = "Tool Finder"
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 24
+title.Font = Enum.Font.GothamBold
+title.TextSize = 28
 title.TextColor3 = Color3.fromRGB(255,255,255)
 title.Parent = frame
 
--- SEARCH BAR
+-- SEARCH BAR (Bigger for mobile)
 local searchBox = Instance.new("TextBox")
-searchBox.Size = UDim2.new(1, -20, 0, 30)
-searchBox.Position = UDim2.new(0, 10, 0, 45)
+searchBox.Size = UDim2.new(1, -30, 0, 45)
+searchBox.Position = UDim2.new(0, 15, 0, 55)
 searchBox.PlaceholderText = "Search tools..."
 searchBox.Text = ""
-searchBox.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+searchBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 searchBox.TextColor3 = Color3.fromRGB(255,255,255)
-searchBox.Font = Enum.Font.SourceSans
-searchBox.TextSize = 20
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 22
 searchBox.Parent = frame
-Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 8)
 
--- TOOL LIST AREA
+-- TOOL LIST
 local scroll = Instance.new("ScrollingFrame")
-scroll.Size = UDim2.new(1, -10, 1, -90)
-scroll.Position = UDim2.new(0, 5, 0, 80)
+scroll.Size = UDim2.new(1, -20, 1, -120)
+scroll.Position = UDim2.new(0, 10, 0, 105)
 scroll.CanvasSize = UDim2.new(0,0,0,0)
-scroll.ScrollBarThickness = 6
+scroll.ScrollBarThickness = 8
 scroll.BackgroundColor3 = Color3.fromRGB(30,30,30)
 scroll.BorderSizePixel = 0
 scroll.Parent = frame
 
 local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 4)
+layout.Padding = UDim.new(0, 6)
 layout.SortOrder = Enum.SortOrder.Name
 layout.Parent = scroll
 
 ---------------------------------------------------------
--- SCAN FOR TOOLS
+-- TOOL SCANNING
 ---------------------------------------------------------
 local function getAllTools()
-    local foundTools = {}
+    local found = {}
 
-    for _, container in ipairs(SEARCH_AREAS) do
-        for _, obj in ipairs(container:GetDescendants()) do
+    for _, area in ipairs(SEARCH_AREAS) do
+        for _, obj in ipairs(area:GetDescendants()) do
             if obj:IsA("Tool") then
-                table.insert(foundTools, obj)
+                table.insert(found, obj)
             end
         end
     end
 
-    return foundTools
+    return found
 end
 
 local allTools = getAllTools()
@@ -99,12 +100,11 @@ local function equipTool(tool)
 end
 
 ---------------------------------------------------------
--- BUILD TOOL LIST WITH FILTERING
+-- REFRESH LIST (with search)
 ---------------------------------------------------------
 local function refreshList(search)
     search = string.lower(search or "")
 
-    -- Clear previous buttons
     for _, child in ipairs(scroll:GetChildren()) do
         if child:IsA("TextButton") then
             child:Destroy()
@@ -112,18 +112,17 @@ local function refreshList(search)
     end
 
     for _, tool in ipairs(allTools) do
-        local toolName = string.lower(tool.Name)
-
-        -- Filter by search
-        if toolName:find(search, 1, true) then
+        if string.lower(tool.Name):find(search, 1, true) then
             local button = Instance.new("TextButton")
-            button.Size = UDim2.new(1, -10, 0, 30)
-            button.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            button.Size = UDim2.new(1, -10, 0, 45) -- bigger for touch
+            button.BackgroundColor3 = Color3.fromRGB(70,70,70)
             button.TextColor3 = Color3.fromRGB(255,255,255)
-            button.Font = Enum.Font.SourceSans
-            button.TextSize = 20
+            button.Font = Enum.Font.GothamMedium
+            button.TextSize = 22
             button.Text = tool.Name
             button.Parent = scroll
+
+            Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
 
             button.MouseButton1Click:Connect(function()
                 equipTool(tool)
@@ -135,12 +134,12 @@ local function refreshList(search)
 end
 
 ---------------------------------------------------------
--- INITIAL LOAD
+-- INIT
 ---------------------------------------------------------
 refreshList("")
 
 ---------------------------------------------------------
--- SEARCH BAR UPDATES LIST LIVE
+-- LIVE SEARCH
 ---------------------------------------------------------
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     refreshList(searchBox.Text)
