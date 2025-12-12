@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local backpack = player:WaitForChild("Backpack")
 
--- SERVICES TO SEARCH
+-- SEARCH AREAS (add any others you use)
 local SEARCH_AREAS = {
     game.Workspace,
     game.ReplicatedStorage,
@@ -10,7 +10,9 @@ local SEARCH_AREAS = {
     game.StarterPack,
 }
 
--- CREATE GUI
+---------------------------------------------------------
+-- GUI CREATION
+---------------------------------------------------------
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ToolFinderGUI"
 screenGui.ResetOnSpawn = false
@@ -18,13 +20,13 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 300, 0, 350)
-frame.Position = UDim2.new(0, 20, 0.5, -175)
+frame.Position = UDim2.new(0, 20, 0.4, -175)
 frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
-local uiCorner = Instance.new("UICorner", frame)
-uiCorner.CornerRadius = UDim.new(0, 10)
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0, 10)
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 40)
@@ -44,11 +46,14 @@ scroll.BackgroundColor3 = Color3.fromRGB(30,30,30)
 scroll.BorderSizePixel = 0
 scroll.Parent = frame
 
-local listLayout = Instance.new("UIListLayout")
-listLayout.Padding = UDim.new(0, 5)
-listLayout.Parent = scroll
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 4)
+layout.SortOrder = Enum.SortOrder.Name
+layout.Parent = scroll
 
---// FUNCTION: Scan game for tools
+---------------------------------------------------------
+-- SCAN FOR TOOLS
+---------------------------------------------------------
 local function getAllTools()
     local foundTools = {}
 
@@ -63,45 +68,43 @@ local function getAllTools()
     return foundTools
 end
 
---// FUNCTION: Equip a tool (clone if needed)
+---------------------------------------------------------
+-- EQUIP TOOL (clone if not in backpack)
+---------------------------------------------------------
 local function equipTool(tool)
     local char = player.Character or player.CharacterAdded:Wait()
 
-    local toolToEquip
+    local toolToEquip = backpack:FindFirstChild(tool.Name)
 
-    -- If it's already in the backpack, use it
-    local existing = backpack:FindFirstChild(tool.Name)
-    if existing then
-        toolToEquip = existing
-    
-    -- Otherwise clone it from the game
-    elseif tool:IsDescendantOf(game) then
+    if not toolToEquip then
         toolToEquip = tool:Clone()
         toolToEquip.Parent = backpack
-    else
-        warn("Cannot access tool:", tool.Name)
-        return
     end
 
-    -- Equip it
     toolToEquip.Parent = char
     print("Equipped:", toolToEquip.Name)
 end
 
---// FUNCTION: Build tool list GUI
+---------------------------------------------------------
+-- BUILD GUI LIST
+---------------------------------------------------------
 local function refreshGUI()
-    scroll:ClearAllChildren()
-
-    local layout = listLayout
-    layout.Parent = scroll
+    -- Clear previous list
+    for _, child in ipairs(scroll:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
 
     local tools = getAllTools()
 
     for _, tool in ipairs(tools) do
         local button = Instance.new("TextButton")
         button.Size = UDim2.new(1, -10, 0, 30)
-        button.BackgroundColor3 = Color3.fromRGB(60,60,60)
-        button.TextColor3 = Color3.fromRGB(255,255,255)
+        button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        button.Font = Enum.Font.SourceSans
+        button.TextSize = 20
         button.Text = tool.Name
         button.Parent = scroll
 
@@ -110,11 +113,15 @@ local function refreshGUI()
         end)
     end
 
-    scroll.CanvasSize = UDim2.new(0,0,0, listLayout.AbsoluteContentSize.Y + 10)
+    scroll.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 10)
 end
 
--- Build the GUI immediately
+---------------------------------------------------------
+-- INITIALIZE + REFRESH ON RESPAWN
+---------------------------------------------------------
 refreshGUI()
 
--- Optional: refresh automatically when character respawns
-player.CharacterAdded:Connect(refreshGUI)
+player.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    refreshGUI()
+end)
