@@ -1,8 +1,10 @@
---// FAST Player Highlight + POV Lock
+--// FAST Player Utility Script
+--// Highlight + POV Lock + Infinite Jump
 --// LocalScript | StarterPlayerScripts
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -10,19 +12,19 @@ local Camera = workspace.CurrentCamera
 -- STATES
 local highlightsEnabled = false
 local povLockEnabled = false
+local infJumpEnabled = false
+
 local highlights = {}
 local characterCache = {}
-
 local povConnection
 local closestTarget
 
--- GUI INSTANT CREATE
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "FastUtilityGui"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer.PlayerGui
 
--- Button factory
 local function makeButton(text, pos)
 	local b = Instance.new("TextButton")
 	b.Size = UDim2.new(0, 160, 0, 50)
@@ -38,145 +40,107 @@ local function makeButton(text, pos)
 	return b
 end
 
-local HighlightButton = makeButton("Highlight: OFF", UDim2.new(0,20,0.5,-60))
-local PovButton = makeButton("POV Lock: OFF", UDim2.new(0,20,0.5,10))
+local HighlightButton = makeButton("Highlight: OFF", UDim2.new(0,20,0.5,-90))
+local PovButton = makeButton("POV Lock: OFF", UDim2.new(0,20,0.5,-20))
+local JumpButton = makeButton("Inf Jump: OFF", UDim2.new(0,20,0.5,50))
 
--- CACHE CHARACTERS
+-- CHARACTER CACHE
 local function cachePlayer(plr)
 	if plr == LocalPlayer then return end
 
 	local function onChar(char)
 		characterCache[plr] = char
 		if highlightsEnabled then
-			task.defer(function()
-				local hl = Instance.new("Highlight")
-				hl.FillColor = Color3.fromRGB(255,0,0)
-				hl.OutlineColor = Color3.fromRGB(255,255,255)
-				hl.FillTransparency = 0.5
-				hl.Adornee = char
-				hl.Parent = char
-				highlights[char] = hl
-			end)
+			local hl = Instance.new("Highlight")
+			hl.FillColor = Color3.fromRGB(255,0,0)
+			hl.OutlineColor = Color3.fromRGB(255,255,255)
+			hl.FillTransparency = 0.5
+			hl.Adornee = char
+			hl.Parent = char
+			highlights[char] = hl
 		end
 	end
 
-	if plr.Character then
-		onChar(plr.Character)
-	end
-
+	if plr.Character then onChar(plr.Character) end
 	plr.CharacterAdded:Connect(onChar)
 end
 
--- INITIAL CACHE
 for _, plr in ipairs(Players:GetPlayers()) do
 	cachePlayer(plr)
 end
-
 Players.PlayerAdded:Connect(cachePlayer)
 
-Players.PlayerRemoving:Connect(function(plr)
-	local char = characterCache[plr]
-	if char and highlights[char] then
-		highlights[char]:Destroy()
-	end
-	characterCache[plr] = nil
-end)
-
--- HIGHLIGHT TOGGLE
+-- HIGHLIGHTS
 HighlightButton.MouseButton1Click:Connect(function()
 	highlightsEnabled = not highlightsEnabled
+	HighlightButton.Text = highlightsEnabled and "Highlight: ON" or "Highlight: OFF"
+	HighlightButton.BackgroundColor3 = highlightsEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(40,40,40)
 
-	if highlightsEnabled then
-		HighlightButton.Text = "Highlight: ON"
-		HighlightButton.BackgroundColor3 = Color3.fromRGB(0,170,0)
-
-		for _, char in pairs(characterCache) do
-			if not highlights[char] then
-				local hl = Instance.new("Highlight")
-				hl.FillColor = Color3.fromRGB(255,0,0)
-				hl.OutlineColor = Color3.fromRGB(255,255,255)
-				hl.FillTransparency = 0.5
-				hl.Adornee = char
-				hl.Parent = char
-				highlights[char] = hl
-			end
-		end
-	else
-		HighlightButton.Text = "Highlight: OFF"
-		HighlightButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
-
-		for _, hl in pairs(highlights) do
-			hl:Destroy()
-		end
+	if not highlightsEnabled then
+		for _, hl in pairs(highlights) do hl:Destroy() end
 		table.clear(highlights)
 	end
 end)
 
--- FIND CLOSEST PLAYER (FAST)
+-- FIND CLOSEST
 local function updateClosest()
 	local myChar = LocalPlayer.Character
 	local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	if not myHRP then
-		closestTarget = nil
-		return
-	end
+	if not myHRP then return end
 
 	local bestDist = math.huge
-	local bestChar = nil
-
 	for _, char in pairs(characterCache) do
 		local hrp = char:FindFirstChild("HumanoidRootPart")
 		if hrp then
 			local d = (myHRP.Position - hrp.Position).Magnitude
 			if d < bestDist then
 				bestDist = d
-				bestChar = char
+				closestTarget = char
 			end
 		end
 	end
-
-	closestTarget = bestChar
 end
 
 -- POV LOCK
 local timer = 0
 local function startPov()
 	Camera.CameraType = Enum.CameraType.Scriptable
-
 	povConnection = RunService.RenderStepped:Connect(function(dt)
 		timer += dt
-		if timer > 0.2 then -- update target only 5x/sec
+		if timer > 0.2 then
 			updateClosest()
 			timer = 0
 		end
-
 		if closestTarget and closestTarget:FindFirstChild("HumanoidRootPart") then
-			Camera.CFrame = CFrame.new(
-				Camera.CFrame.Position,
-				closestTarget.HumanoidRootPart.Position
-			)
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestTarget.HumanoidRootPart.Position)
 		end
 	end)
 end
 
 local function stopPov()
-	if povConnection then
-		povConnection:Disconnect()
-		povConnection = nil
-	end
+	if povConnection then povConnection:Disconnect() end
 	Camera.CameraType = Enum.CameraType.Custom
 end
 
 PovButton.MouseButton1Click:Connect(function()
 	povLockEnabled = not povLockEnabled
+	PovButton.Text = povLockEnabled and "POV Lock: ON" or "POV Lock: OFF"
+	PovButton.BackgroundColor3 = povLockEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(40,40,40)
+	if povLockEnabled then startPov() else stopPov() end
+end)
 
-	if povLockEnabled then
-		PovButton.Text = "POV Lock: ON"
-		PovButton.BackgroundColor3 = Color3.fromRGB(0,170,0)
-		startPov()
-	else
-		PovButton.Text = "POV Lock: OFF"
-		PovButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
-		stopPov()
+-- INFINITE JUMP
+UserInputService.JumpRequest:Connect(function()
+	if not infJumpEnabled then return end
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum:ChangeState(Enum.HumanoidStateType.Jumping)
 	end
+end)
+
+JumpButton.MouseButton1Click:Connect(function()
+	infJumpEnabled = not infJumpEnabled
+	JumpButton.Text = infJumpEnabled and "Inf Jump: ON" or "Inf Jump: OFF"
+	JumpButton.BackgroundColor3 = infJumpEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(40,40,40)
 end)
