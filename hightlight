@@ -1,115 +1,165 @@
---// Player Highlight + POV Lock Script
---// LocalScript - StarterPlayerScripts
+--// FAST Player Highlight + POV Lock
+--// LocalScript | StarterPlayerScripts
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
+-- STATES
 local highlightsEnabled = false
 local povLockEnabled = false
 local highlights = {}
-local povConnection = nil
+local characterCache = {}
 
---// GUI
+local povConnection
+local closestTarget
+
+-- GUI INSTANT CREATE
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "PlayerToolsGui"
+ScreenGui.Name = "FastUtilityGui"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = LocalPlayer.PlayerGui
 
--- Highlight Button
-local HighlightButton = Instance.new("TextButton")
-HighlightButton.Size = UDim2.new(0, 170, 0, 50)
-HighlightButton.Position = UDim2.new(0, 20, 0.5, -60)
-HighlightButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
-HighlightButton.TextColor3 = Color3.fromRGB(255,255,255)
-HighlightButton.TextScaled = true
-HighlightButton.Font = Enum.Font.GothamBold
-HighlightButton.Text = "Highlight: OFF"
-HighlightButton.Parent = ScreenGui
-HighlightButton.Active = true
-HighlightButton.Draggable = true
-
--- POV Button
-local POVButton = Instance.new("TextButton")
-POVButton.Size = UDim2.new(0, 170, 0, 50)
-POVButton.Position = UDim2.new(0, 20, 0.5, 5)
-POVButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
-POVButton.TextColor3 = Color3.fromRGB(255,255,255)
-POVButton.TextScaled = true
-POVButton.Font = Enum.Font.GothamBold
-POVButton.Text = "POV Lock: OFF"
-POVButton.Parent = ScreenGui
-POVButton.Active = true
-POVButton.Draggable = true
-
---// Highlight Logic
-local function addHighlight(character)
-	if not character or character == LocalPlayer.Character then return end
-	if highlights[character] then return end
-
-	local hl = Instance.new("Highlight")
-	hl.FillColor = Color3.fromRGB(255,0,0)
-	hl.OutlineColor = Color3.fromRGB(255,255,255)
-	hl.FillTransparency = 0.5
-	hl.Adornee = character
-	hl.Parent = character
-
-	highlights[character] = hl
+-- Button factory
+local function makeButton(text, pos)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0, 160, 0, 50)
+	b.Position = pos
+	b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	b.TextColor3 = Color3.fromRGB(255,255,255)
+	b.TextScaled = true
+	b.Font = Enum.Font.GothamBold
+	b.Text = text
+	b.Active = true
+	b.Draggable = true
+	b.Parent = ScreenGui
+	return b
 end
 
-local function removeAllHighlights()
-	for _, hl in pairs(highlights) do
-		if hl then hl:Destroy() end
-	end
-	table.clear(highlights)
-end
+local HighlightButton = makeButton("Highlight: OFF", UDim2.new(0,20,0.5,-60))
+local PovButton = makeButton("POV Lock: OFF", UDim2.new(0,20,0.5,10))
 
-local function highlightAllPlayers()
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			addHighlight(player.Character)
+-- CACHE CHARACTERS
+local function cachePlayer(plr)
+	if plr == LocalPlayer then return end
+
+	local function onChar(char)
+		characterCache[plr] = char
+		if highlightsEnabled then
+			task.defer(function()
+				local hl = Instance.new("Highlight")
+				hl.FillColor = Color3.fromRGB(255,0,0)
+				hl.OutlineColor = Color3.fromRGB(255,255,255)
+				hl.FillTransparency = 0.5
+				hl.Adornee = char
+				hl.Parent = char
+				highlights[char] = hl
+			end)
 		end
 	end
+
+	if plr.Character then
+		onChar(plr.Character)
+	end
+
+	plr.CharacterAdded:Connect(onChar)
 end
 
---// Closest Player Finder
-local function getClosestPlayer()
-	local closest = nil
-	local shortest = math.huge
+-- INITIAL CACHE
+for _, plr in ipairs(Players:GetPlayers()) do
+	cachePlayer(plr)
+end
+
+Players.PlayerAdded:Connect(cachePlayer)
+
+Players.PlayerRemoving:Connect(function(plr)
+	local char = characterCache[plr]
+	if char and highlights[char] then
+		highlights[char]:Destroy()
+	end
+	characterCache[plr] = nil
+end)
+
+-- HIGHLIGHT TOGGLE
+HighlightButton.MouseButton1Click:Connect(function()
+	highlightsEnabled = not highlightsEnabled
+
+	if highlightsEnabled then
+		HighlightButton.Text = "Highlight: ON"
+		HighlightButton.BackgroundColor3 = Color3.fromRGB(0,170,0)
+
+		for _, char in pairs(characterCache) do
+			if not highlights[char] then
+				local hl = Instance.new("Highlight")
+				hl.FillColor = Color3.fromRGB(255,0,0)
+				hl.OutlineColor = Color3.fromRGB(255,255,255)
+				hl.FillTransparency = 0.5
+				hl.Adornee = char
+				hl.Parent = char
+				highlights[char] = hl
+			end
+		end
+	else
+		HighlightButton.Text = "Highlight: OFF"
+		HighlightButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
+
+		for _, hl in pairs(highlights) do
+			hl:Destroy()
+		end
+		table.clear(highlights)
+	end
+end)
+
+-- FIND CLOSEST PLAYER (FAST)
+local function updateClosest()
 	local myChar = LocalPlayer.Character
-	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	if not myHRP then
+		closestTarget = nil
+		return
+	end
 
-	if not myRoot then return nil end
+	local bestDist = math.huge
+	local bestChar = nil
 
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local root = player.Character:FindFirstChild("HumanoidRootPart")
-			if root then
-				local dist = (myRoot.Position - root.Position).Magnitude
-				if dist < shortest then
-					shortest = dist
-					closest = root
-				end
+	for _, char in pairs(characterCache) do
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local d = (myHRP.Position - hrp.Position).Magnitude
+			if d < bestDist then
+				bestDist = d
+				bestChar = char
 			end
 		end
 	end
 
-	return closest
+	closestTarget = bestChar
 end
 
---// POV Lock Logic
-local function enablePOVLock()
-	povConnection = RunService.RenderStepped:Connect(function()
-		local target = getClosestPlayer()
-		if target then
-			Camera.CameraType = Enum.CameraType.Scriptable
-			Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+-- POV LOCK
+local timer = 0
+local function startPov()
+	Camera.CameraType = Enum.CameraType.Scriptable
+
+	povConnection = RunService.RenderStepped:Connect(function(dt)
+		timer += dt
+		if timer > 0.2 then -- update target only 5x/sec
+			updateClosest()
+			timer = 0
+		end
+
+		if closestTarget and closestTarget:FindFirstChild("HumanoidRootPart") then
+			Camera.CFrame = CFrame.new(
+				Camera.CFrame.Position,
+				closestTarget.HumanoidRootPart.Position
+			)
 		end
 	end)
 end
 
-local function disablePOVLock()
+local function stopPov()
 	if povConnection then
 		povConnection:Disconnect()
 		povConnection = nil
@@ -117,22 +167,16 @@ local function disablePOVLock()
 	Camera.CameraType = Enum.CameraType.Custom
 end
 
---// Button Events
-HighlightButton.MouseButton1Click:Connect(function()
-	highlightsEnabled = not highlightsEnabled
-	if highlightsEnabled then
-		HighlightButton.Text = "Highlight: ON"
-		HighlightButton.BackgroundColor3 = Color3.fromRGB(0,170,0)
-		highlightAllPlayers()
+PovButton.MouseButton1Click:Connect(function()
+	povLockEnabled = not povLockEnabled
+
+	if povLockEnabled then
+		PovButton.Text = "POV Lock: ON"
+		PovButton.BackgroundColor3 = Color3.fromRGB(0,170,0)
+		startPov()
 	else
-		HighlightButton.Text = "Highlight: OFF"
-		HighlightButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
-		removeAllHighlights()
+		PovButton.Text = "POV Lock: OFF"
+		PovButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
+		stopPov()
 	end
 end)
-
-POVButton.MouseButton1Click:Connect(function()
-	povLockEnabled = not povLockEnabled
-	if povLockEnabled then
-		POVButton.Text = "POV Lock: ON"
-		POVButton.BackgroundColor3 = Color3.fromRGB(0,170
