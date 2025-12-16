@@ -1,6 +1,5 @@
---// FAST Player Utility Script
---// Highlight (wallhack) + POV Lock + Infinite Jump + NoClip + WalkSpeed
---// LocalScript
+--// Player Utility: Toggleable GUI
+--// LocalScript | StarterPlayerScripts
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -15,52 +14,108 @@ local povLockEnabled = false
 local infJumpEnabled = false
 local noclipEnabled = false
 
--- DATA
 local highlights = {}
 local characterCache = {}
 local closestTarget
 local povConnection
 local noclipConnection
-
-local walkSpeed = 16 -- default Roblox speed
+local walkSpeed = 16
 
 -- GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FastUtilityGui"
+ScreenGui.Name = "UtilityGui"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer.PlayerGui
 
-local function makeButton(text, pos, size)
+-- Master toggle frame
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 220, 0, 300)
+Frame.Position = UDim2.new(0, 20, 0.5, -150)
+Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Frame.Visible = false
+Frame.Parent = ScreenGui
+Frame.Draggable = true
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0,5)
+UIListLayout.FillDirection = Enum.FillDirection.Vertical
+UIListLayout.Parent = Frame
+
+-- Master toggle button
+local MasterButton = Instance.new("TextButton")
+MasterButton.Size = UDim2.new(0, 220, 0, 50)
+MasterButton.Position = UDim2.new(0,0,0,0)
+MasterButton.Text = "Toggle Utility GUI"
+MasterButton.Font = Enum.Font.GothamBold
+MasterButton.TextScaled = true
+MasterButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+MasterButton.TextColor3 = Color3.fromRGB(255,255,255)
+MasterButton.Active = true
+MasterButton.Parent = ScreenGui
+MasterButton.Draggable = true
+
+MasterButton.MouseButton1Click:Connect(function()
+	Frame.Visible = not Frame.Visible
+end)
+
+-- Function to create buttons inside GUI
+local function makeButton(text)
 	local b = Instance.new("TextButton")
-	b.Size = size or UDim2.new(0, 160, 0, 45)
-	b.Position = pos
+	b.Size = UDim2.new(0, 200, 0, 40)
 	b.BackgroundColor3 = Color3.fromRGB(40,40,40)
 	b.TextColor3 = Color3.fromRGB(255,255,255)
 	b.TextScaled = true
 	b.Font = Enum.Font.GothamBold
 	b.Text = text
 	b.Active = true
-	b.Draggable = true
-	b.Parent = ScreenGui
+	b.Parent = Frame
 	return b
 end
 
--- BUTTONS
-local HighlightButton = makeButton("Highlight: OFF", UDim2.new(0,20,0.5,-150))
-local PovButton       = makeButton("POV Lock: OFF", UDim2.new(0,20,0.5,-100))
-local JumpButton      = makeButton("Inf Jump: OFF", UDim2.new(0,20,0.5,-50))
-local NoClipButton    = makeButton("NoClip: OFF",   UDim2.new(0,20,0.5,0))
+-- Buttons
+local HighlightButton = makeButton("Highlight: OFF")
+local PovButton       = makeButton("POV Lock: OFF")
+local JumpButton      = makeButton("Inf Jump: OFF")
+local NoClipButton    = makeButton("NoClip: OFF")
 
-local SpeedDown = makeButton("-", UDim2.new(0,20,0.5,60), UDim2.new(0,45,0,45))
-local SpeedLabel = makeButton("Speed: 16", UDim2.new(0,75,0.5,60), UDim2.new(0,110,0,45))
-SpeedLabel.Active = false
-SpeedLabel.Draggable = false
-local SpeedUp = makeButton("+", UDim2.new(0,190,0.5,60), UDim2.new(0,45,0,45))
+local WalkFrame = Instance.new("Frame")
+WalkFrame.Size = UDim2.new(0,200,0,50)
+WalkFrame.BackgroundTransparency = 1
+WalkFrame.Parent = Frame
+
+local SpeedDown = Instance.new("TextButton")
+SpeedDown.Size = UDim2.new(0,50,0,40)
+SpeedDown.Position = UDim2.new(0,0,0,0)
+SpeedDown.Text = "-"
+SpeedDown.Font = Enum.Font.GothamBold
+SpeedDown.TextScaled = true
+SpeedDown.BackgroundColor3 = Color3.fromRGB(40,40,40)
+SpeedDown.TextColor3 = Color3.fromRGB(255,255,255)
+SpeedDown.Parent = WalkFrame
+
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(0,100,0,40)
+SpeedLabel.Position = UDim2.new(0,55,0,0)
+SpeedLabel.Text = "Speed: 16"
+SpeedLabel.Font = Enum.Font.GothamBold
+SpeedLabel.TextScaled = true
+SpeedLabel.BackgroundColor3 = Color3.fromRGB(40,40,40)
+SpeedLabel.TextColor3 = Color3.fromRGB(255,255,255)
+SpeedLabel.Parent = WalkFrame
+
+local SpeedUp = Instance.new("TextButton")
+SpeedUp.Size = UDim2.new(0,50,0,40)
+SpeedUp.Position = UDim2.new(0,160,0,0)
+SpeedUp.Text = "+"
+SpeedUp.Font = Enum.Font.GothamBold
+SpeedUp.TextScaled = true
+SpeedUp.BackgroundColor3 = Color3.fromRGB(40,40,40)
+SpeedUp.TextColor3 = Color3.fromRGB(255,255,255)
+SpeedUp.Parent = WalkFrame
 
 -- CHARACTER CACHE
 local function cachePlayer(plr)
 	if plr == LocalPlayer then return end
-
 	local function onChar(char)
 		characterCache[plr] = char
 		if highlightsEnabled then
@@ -74,7 +129,6 @@ local function cachePlayer(plr)
 			highlights[char] = hl
 		end
 	end
-
 	if plr.Character then onChar(plr.Character) end
 	plr.CharacterAdded:Connect(onChar)
 end
@@ -83,28 +137,44 @@ for _, plr in ipairs(Players:GetPlayers()) do
 	cachePlayer(plr)
 end
 Players.PlayerAdded:Connect(cachePlayer)
+Players.PlayerRemoving:Connect(function(plr)
+	local char = characterCache[plr]
+	if char and highlights[char] then highlights[char]:Destroy() end
+	characterCache[plr] = nil
+end)
 
--- HIGHLIGHTS TOGGLE
+-- HIGHLIGHT
 HighlightButton.MouseButton1Click:Connect(function()
 	highlightsEnabled = not highlightsEnabled
 	HighlightButton.Text = highlightsEnabled and "Highlight: ON" or "Highlight: OFF"
 	HighlightButton.BackgroundColor3 = highlightsEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(40,40,40)
-
-	if not highlightsEnabled then
+	if highlightsEnabled then
+		for _, char in pairs(characterCache) do
+			if not highlights[char] then
+				local hl = Instance.new("Highlight")
+				hl.FillColor = Color3.fromRGB(255,0,0)
+				hl.OutlineColor = Color3.fromRGB(255,255,255)
+				hl.FillTransparency = 0.5
+				hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				hl.Adornee = char
+				hl.Parent = char
+				highlights[char] = hl
+			end
+		end
+	else
 		for _, hl in pairs(highlights) do hl:Destroy() end
 		table.clear(highlights)
 	end
 end)
 
--- FIND CLOSEST PLAYER
+-- POV LOCK
+local timer = 0
 local function updateClosest()
 	local myChar = LocalPlayer.Character
 	local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	if not myHRP then return end
-
+	if not myHRP then closestTarget=nil return end
 	local bestDist = math.huge
 	closestTarget = nil
-
 	for _, char in pairs(characterCache) do
 		local hrp = char:FindFirstChild("HumanoidRootPart")
 		if hrp then
@@ -117,26 +187,17 @@ local function updateClosest()
 	end
 end
 
--- POV LOCK
-local timer = 0
 local function startPov()
 	Camera.CameraType = Enum.CameraType.Scriptable
 	povConnection = RunService.RenderStepped:Connect(function(dt)
-		timer += dt
-		if timer > 0.2 then
-			updateClosest()
-			timer = 0
-		end
+		timer+=dt
+		if timer>0.2 then updateClosest() timer=0 end
 		if closestTarget and closestTarget:FindFirstChild("HumanoidRootPart") then
 			Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestTarget.HumanoidRootPart.Position)
 		end
 	end)
 end
-
-local function stopPov()
-	if povConnection then povConnection:Disconnect() end
-	Camera.CameraType = Enum.CameraType.Custom
-end
+local function stopPov() if povConnection then povConnection:Disconnect() end Camera.CameraType = Enum.CameraType.Custom end
 
 PovButton.MouseButton1Click:Connect(function()
 	povLockEnabled = not povLockEnabled
@@ -147,11 +208,11 @@ end)
 
 -- INFINITE JUMP
 UserInputService.JumpRequest:Connect(function()
-	if not infJumpEnabled then return end
-	local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-	if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+	if infJumpEnabled then
+		local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+		if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+	end
 end)
-
 JumpButton.MouseButton1Click:Connect(function()
 	infJumpEnabled = not infJumpEnabled
 	JumpButton.Text = infJumpEnabled and "Inf Jump: ON" or "Inf Jump: OFF"
@@ -162,19 +223,14 @@ end)
 local function startNoClip()
 	noclipConnection = RunService.Stepped:Connect(function()
 		local char = LocalPlayer.Character
-		if not char then return end
-		for _, part in ipairs(char:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = false
+		if char then
+			for _, p in pairs(char:GetDescendants()) do
+				if p:IsA("BasePart") then p.CanCollide = false end
 			end
 		end
 	end)
 end
-
-local function stopNoClip()
-	if noclipConnection then noclipConnection:Disconnect() end
-end
-
+local function stopNoClip() if noclipConnection then noclipConnection:Disconnect() end end
 NoClipButton.MouseButton1Click:Connect(function()
 	noclipEnabled = not noclipEnabled
 	NoClipButton.Text = noclipEnabled and "NoClip: ON" or "NoClip: OFF"
@@ -186,21 +242,8 @@ end)
 local function applySpeed()
 	local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 	if hum then hum.WalkSpeed = walkSpeed end
-	SpeedLabel.Text = "Speed: " .. walkSpeed
+	SpeedLabel.Text = "Speed: "..walkSpeed
 end
-
-SpeedUp.MouseButton1Click:Connect(function()
-	walkSpeed = math.clamp(walkSpeed + 4, 8, 200)
-	applySpeed()
-end)
-
-SpeedDown.MouseButton1Click:Connect(function()
-	walkSpeed = math.clamp(walkSpeed - 4, 8, 200)
-	applySpeed()
-end)
-
--- APPLY SPEED ON RESPAWN
-LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(0.2)
-	applySpeed()
-end)
+SpeedUp.MouseButton1Click:Connect(function() walkSpeed = math.clamp(walkSpeed+4,8,200); applySpeed() end)
+SpeedDown.MouseButton1Click:Connect(function() walkSpeed = math.clamp(walkSpeed-4,8,200); applySpeed() end)
+LocalPlayer.CharacterAdded:Connect(function() task.wait(0.2); applySpeed() end)
