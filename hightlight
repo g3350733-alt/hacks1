@@ -1,0 +1,89 @@
+--// Player Highlight Toggle Script
+--// Put this LocalScript in StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local highlightsEnabled = false
+local highlights = {}
+
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PlayerHighlighterGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local Button = Instance.new("TextButton")
+Button.Size = UDim2.new(0, 160, 0, 50)
+Button.Position = UDim2.new(0, 20, 0.5, -25)
+Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+Button.TextScaled = true
+Button.Font = Enum.Font.GothamBold
+Button.Text = "Highlight: OFF"
+Button.Parent = ScreenGui
+Button.Active = true
+Button.Draggable = true -- mobile friendly
+
+-- Function to add highlight
+local function addHighlight(character)
+	if not character or character == LocalPlayer.Character then return end
+	if highlights[character] then return end
+
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = Color3.fromRGB(255, 0, 0)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.FillTransparency = 0.5
+	highlight.OutlineTransparency = 0
+	highlight.Adornee = character
+	highlight.Parent = character
+
+	highlights[character] = highlight
+end
+
+-- Remove all highlights
+local function removeAllHighlights()
+	for char, hl in pairs(highlights) do
+		if hl then hl:Destroy() end
+	end
+	table.clear(highlights)
+end
+
+-- Apply highlights to all players
+local function highlightAllPlayers()
+	for _, player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			addHighlight(player.Character)
+		end
+
+		player.CharacterAdded:Connect(function(char)
+			if highlightsEnabled then
+				task.wait(0.5)
+				addHighlight(char)
+			end
+		end)
+	end
+end
+
+-- Toggle button
+Button.MouseButton1Click:Connect(function()
+	highlightsEnabled = not highlightsEnabled
+
+	if highlightsEnabled then
+		Button.Text = "Highlight: ON"
+		Button.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+		highlightAllPlayers()
+	else
+		Button.Text = "Highlight: OFF"
+		Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+		removeAllHighlights()
+	end
+end)
+
+-- Cleanup when players leave
+Players.PlayerRemoving:Connect(function(player)
+	if player.Character and highlights[player.Character] then
+		highlights[player.Character]:Destroy()
+		highlights[player.Character] = nil
+	end
+end)
