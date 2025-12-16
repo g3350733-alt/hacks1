@@ -1,6 +1,6 @@
 --// FAST Player Utility Script
---// Highlight + POV Lock + Infinite Jump
---// LocalScript | StarterPlayerScripts
+--// Highlight (wallhack) + POV Lock + Infinite Jump + NoClip + WalkSpeed
+--// LocalScript
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -13,11 +13,16 @@ local Camera = workspace.CurrentCamera
 local highlightsEnabled = false
 local povLockEnabled = false
 local infJumpEnabled = false
+local noclipEnabled = false
 
+-- DATA
 local highlights = {}
 local characterCache = {}
-local povConnection
 local closestTarget
+local povConnection
+local noclipConnection
+
+local walkSpeed = 16 -- default Roblox speed
 
 -- GUI
 local ScreenGui = Instance.new("ScreenGui")
@@ -25,11 +30,11 @@ ScreenGui.Name = "FastUtilityGui"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer.PlayerGui
 
-local function makeButton(text, pos)
+local function makeButton(text, pos, size)
 	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(0, 160, 0, 50)
+	b.Size = size or UDim2.new(0, 160, 0, 45)
 	b.Position = pos
-	b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	b.BackgroundColor3 = Color3.fromRGB(40,40,40)
 	b.TextColor3 = Color3.fromRGB(255,255,255)
 	b.TextScaled = true
 	b.Font = Enum.Font.GothamBold
@@ -40,9 +45,17 @@ local function makeButton(text, pos)
 	return b
 end
 
-local HighlightButton = makeButton("Highlight: OFF", UDim2.new(0,20,0.5,-90))
-local PovButton = makeButton("POV Lock: OFF", UDim2.new(0,20,0.5,-20))
-local JumpButton = makeButton("Inf Jump: OFF", UDim2.new(0,20,0.5,50))
+-- BUTTONS
+local HighlightButton = makeButton("Highlight: OFF", UDim2.new(0,20,0.5,-150))
+local PovButton       = makeButton("POV Lock: OFF", UDim2.new(0,20,0.5,-100))
+local JumpButton      = makeButton("Inf Jump: OFF", UDim2.new(0,20,0.5,-50))
+local NoClipButton    = makeButton("NoClip: OFF",   UDim2.new(0,20,0.5,0))
+
+local SpeedDown = makeButton("-", UDim2.new(0,20,0.5,60), UDim2.new(0,45,0,45))
+local SpeedLabel = makeButton("Speed: 16", UDim2.new(0,75,0.5,60), UDim2.new(0,110,0,45))
+SpeedLabel.Active = false
+SpeedLabel.Draggable = false
+local SpeedUp = makeButton("+", UDim2.new(0,190,0.5,60), UDim2.new(0,45,0,45))
 
 -- CHARACTER CACHE
 local function cachePlayer(plr)
@@ -55,6 +68,7 @@ local function cachePlayer(plr)
 			hl.FillColor = Color3.fromRGB(255,0,0)
 			hl.OutlineColor = Color3.fromRGB(255,255,255)
 			hl.FillTransparency = 0.5
+			hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 			hl.Adornee = char
 			hl.Parent = char
 			highlights[char] = hl
@@ -70,7 +84,7 @@ for _, plr in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(cachePlayer)
 
--- HIGHLIGHTS
+-- HIGHLIGHTS TOGGLE
 HighlightButton.MouseButton1Click:Connect(function()
 	highlightsEnabled = not highlightsEnabled
 	HighlightButton.Text = highlightsEnabled and "Highlight: ON" or "Highlight: OFF"
@@ -82,13 +96,15 @@ HighlightButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- FIND CLOSEST
+-- FIND CLOSEST PLAYER
 local function updateClosest()
 	local myChar = LocalPlayer.Character
 	local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
 	if not myHRP then return end
 
 	local bestDist = math.huge
+	closestTarget = nil
+
 	for _, char in pairs(characterCache) do
 		local hrp = char:FindFirstChild("HumanoidRootPart")
 		if hrp then
@@ -132,15 +148,59 @@ end)
 -- INFINITE JUMP
 UserInputService.JumpRequest:Connect(function()
 	if not infJumpEnabled then return end
-	local char = LocalPlayer.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if hum then
-		hum:ChangeState(Enum.HumanoidStateType.Jumping)
-	end
+	local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
 end)
 
 JumpButton.MouseButton1Click:Connect(function()
 	infJumpEnabled = not infJumpEnabled
 	JumpButton.Text = infJumpEnabled and "Inf Jump: ON" or "Inf Jump: OFF"
 	JumpButton.BackgroundColor3 = infJumpEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(40,40,40)
+end)
+
+-- NOCLIP
+local function startNoClip()
+	noclipConnection = RunService.Stepped:Connect(function()
+		local char = LocalPlayer.Character
+		if not char then return end
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+	end)
+end
+
+local function stopNoClip()
+	if noclipConnection then noclipConnection:Disconnect() end
+end
+
+NoClipButton.MouseButton1Click:Connect(function()
+	noclipEnabled = not noclipEnabled
+	NoClipButton.Text = noclipEnabled and "NoClip: ON" or "NoClip: OFF"
+	NoClipButton.BackgroundColor3 = noclipEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(40,40,40)
+	if noclipEnabled then startNoClip() else stopNoClip() end
+end)
+
+-- WALKSPEED
+local function applySpeed()
+	local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	if hum then hum.WalkSpeed = walkSpeed end
+	SpeedLabel.Text = "Speed: " .. walkSpeed
+end
+
+SpeedUp.MouseButton1Click:Connect(function()
+	walkSpeed = math.clamp(walkSpeed + 4, 8, 200)
+	applySpeed()
+end)
+
+SpeedDown.MouseButton1Click:Connect(function()
+	walkSpeed = math.clamp(walkSpeed - 4, 8, 200)
+	applySpeed()
+end)
+
+-- APPLY SPEED ON RESPAWN
+LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(0.2)
+	applySpeed()
 end)
