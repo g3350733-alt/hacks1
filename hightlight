@@ -1,89 +1,138 @@
---// Player Highlight Toggle Script
---// Put this LocalScript in StarterPlayerScripts
+--// Player Highlight + POV Lock Script
+--// LocalScript - StarterPlayerScripts
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 local highlightsEnabled = false
+local povLockEnabled = false
 local highlights = {}
+local povConnection = nil
 
--- Create GUI
+--// GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "PlayerHighlighterGui"
+ScreenGui.Name = "PlayerToolsGui"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local Button = Instance.new("TextButton")
-Button.Size = UDim2.new(0, 160, 0, 50)
-Button.Position = UDim2.new(0, 20, 0.5, -25)
-Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-Button.TextScaled = true
-Button.Font = Enum.Font.GothamBold
-Button.Text = "Highlight: OFF"
-Button.Parent = ScreenGui
-Button.Active = true
-Button.Draggable = true -- mobile friendly
+-- Highlight Button
+local HighlightButton = Instance.new("TextButton")
+HighlightButton.Size = UDim2.new(0, 170, 0, 50)
+HighlightButton.Position = UDim2.new(0, 20, 0.5, -60)
+HighlightButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
+HighlightButton.TextColor3 = Color3.fromRGB(255,255,255)
+HighlightButton.TextScaled = true
+HighlightButton.Font = Enum.Font.GothamBold
+HighlightButton.Text = "Highlight: OFF"
+HighlightButton.Parent = ScreenGui
+HighlightButton.Active = true
+HighlightButton.Draggable = true
 
--- Function to add highlight
+-- POV Button
+local POVButton = Instance.new("TextButton")
+POVButton.Size = UDim2.new(0, 170, 0, 50)
+POVButton.Position = UDim2.new(0, 20, 0.5, 5)
+POVButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
+POVButton.TextColor3 = Color3.fromRGB(255,255,255)
+POVButton.TextScaled = true
+POVButton.Font = Enum.Font.GothamBold
+POVButton.Text = "POV Lock: OFF"
+POVButton.Parent = ScreenGui
+POVButton.Active = true
+POVButton.Draggable = true
+
+--// Highlight Logic
 local function addHighlight(character)
 	if not character or character == LocalPlayer.Character then return end
 	if highlights[character] then return end
 
-	local highlight = Instance.new("Highlight")
-	highlight.FillColor = Color3.fromRGB(255, 0, 0)
-	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-	highlight.FillTransparency = 0.5
-	highlight.OutlineTransparency = 0
-	highlight.Adornee = character
-	highlight.Parent = character
+	local hl = Instance.new("Highlight")
+	hl.FillColor = Color3.fromRGB(255,0,0)
+	hl.OutlineColor = Color3.fromRGB(255,255,255)
+	hl.FillTransparency = 0.5
+	hl.Adornee = character
+	hl.Parent = character
 
-	highlights[character] = highlight
+	highlights[character] = hl
 end
 
--- Remove all highlights
 local function removeAllHighlights()
-	for char, hl in pairs(highlights) do
+	for _, hl in pairs(highlights) do
 		if hl then hl:Destroy() end
 	end
 	table.clear(highlights)
 end
 
--- Apply highlights to all players
 local function highlightAllPlayers()
 	for _, player in pairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character then
 			addHighlight(player.Character)
 		end
-
-		player.CharacterAdded:Connect(function(char)
-			if highlightsEnabled then
-				task.wait(0.5)
-				addHighlight(char)
-			end
-		end)
 	end
 end
 
--- Toggle button
-Button.MouseButton1Click:Connect(function()
-	highlightsEnabled = not highlightsEnabled
+--// Closest Player Finder
+local function getClosestPlayer()
+	local closest = nil
+	local shortest = math.huge
+	local myChar = LocalPlayer.Character
+	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
 
+	if not myRoot then return nil end
+
+	for _, player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local root = player.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local dist = (myRoot.Position - root.Position).Magnitude
+				if dist < shortest then
+					shortest = dist
+					closest = root
+				end
+			end
+		end
+	end
+
+	return closest
+end
+
+--// POV Lock Logic
+local function enablePOVLock()
+	povConnection = RunService.RenderStepped:Connect(function()
+		local target = getClosestPlayer()
+		if target then
+			Camera.CameraType = Enum.CameraType.Scriptable
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+		end
+	end)
+end
+
+local function disablePOVLock()
+	if povConnection then
+		povConnection:Disconnect()
+		povConnection = nil
+	end
+	Camera.CameraType = Enum.CameraType.Custom
+end
+
+--// Button Events
+HighlightButton.MouseButton1Click:Connect(function()
+	highlightsEnabled = not highlightsEnabled
 	if highlightsEnabled then
-		Button.Text = "Highlight: ON"
-		Button.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+		HighlightButton.Text = "Highlight: ON"
+		HighlightButton.BackgroundColor3 = Color3.fromRGB(0,170,0)
 		highlightAllPlayers()
 	else
-		Button.Text = "Highlight: OFF"
-		Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+		HighlightButton.Text = "Highlight: OFF"
+		HighlightButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
 		removeAllHighlights()
 	end
 end)
 
--- Cleanup when players leave
-Players.PlayerRemoving:Connect(function(player)
-	if player.Character and highlights[player.Character] then
-		highlights[player.Character]:Destroy()
-		highlights[player.Character] = nil
-	end
-end)
+POVButton.MouseButton1Click:Connect(function()
+	povLockEnabled = not povLockEnabled
+	if povLockEnabled then
+		POVButton.Text = "POV Lock: ON"
+		POVButton.BackgroundColor3 = Color3.fromRGB(0,170
