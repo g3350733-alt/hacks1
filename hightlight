@@ -1,16 +1,12 @@
---// Optimized Collapsible Utility GUI + Give All Items
+--// Optimized Collapsible Utility GUI (Clean, No Give All Items)
 --// LocalScript | StarterPlayerScripts
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-
--- RemoteEvent
-local giveAllEvent = ReplicatedStorage:WaitForChild("GiveAllItems")
 
 -- STATES
 local highlightsEnabled = false
@@ -23,8 +19,6 @@ local highlights = {} -- {char=Highlight}
 local characterCache = {} -- {player=char}
 local closestTarget
 local povTimer = 0
-local povConnection
-local noclipConnection
 
 -- GUI
 local ScreenGui = Instance.new("ScreenGui")
@@ -115,8 +109,6 @@ local function createSection(title)
 				)
 			elseif title == "WalkSpeed" then
 				createSpeedControls(content)
-			elseif title == "Items" then
-				createGiveAllButton(content)
 			end
 		end
 	end)
@@ -188,29 +180,12 @@ function createSpeedControls(parent)
 	LocalPlayer.CharacterAdded:Connect(function() task.wait(0.2); applySpeed() end)
 end
 
--- Give All Items Button
-function createGiveAllButton(parent)
-	local GiveAllButton = Instance.new("TextButton")
-	GiveAllButton.Size = UDim2.new(0,200,0,40)
-	GiveAllButton.Text = "Give All Items"
-	GiveAllButton.Font = Enum.Font.GothamBold
-	GiveAllButton.TextScaled = true
-	GiveAllButton.BackgroundColor3 = Color3.fromRGB(170,120,0)
-	GiveAllButton.TextColor3 = Color3.fromRGB(255,255,255)
-	GiveAllButton.Parent = parent
-
-	GiveAllButton.MouseButton1Click:Connect(function()
-		giveAllEvent:FireServer()
-	end)
-end
-
 -- Create sections (buttons are lazy-loaded)
 local highlightSection = createSection("Highlight")
 local povSection = createSection("POV Lock")
 local jumpSection = createSection("Infinite Jump")
 local noclipSection = createSection("NoClip")
 local speedSection = createSection("WalkSpeed")
-local itemsSection = createSection("Items")
 
 -- -----------------
 -- Character Cache
