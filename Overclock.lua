@@ -1,4 +1,4 @@
--- Overclock all-player message (single StarterPlayerScript)
+-- Overclock flashy message (single StarterPlayerScript)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -23,15 +23,12 @@ if RunService:IsServer() then
         end
     end
 
-    -- Show to all current players
     broadcastMessage()
-
-    -- Show to new players who join later
     Players.PlayerAdded:Connect(function(player)
         sendOverclockMessage:FireClient(player, MESSAGE_TEXT)
     end)
 
-    return -- Stop server from running client code
+    return
 end
 
 -- CLIENT-SIDE GUI DISPLAY
@@ -43,8 +40,8 @@ local function displayMessage(message)
 
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0.7, 0, 0.2, 0)
-    frame.Position = UDim2.new(0.15, 0, 0.4, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.Position = UDim2.new(0.15, 0, -0.25, 0) -- start off-screen top
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     frame.BorderSizePixel = 0
     frame.Parent = gui
 
@@ -58,15 +55,35 @@ local function displayMessage(message)
     text.BackgroundTransparency = 1
     text.TextWrapped = true
     text.TextScaled = true
-    text.Font = Enum.Font.GothamBold
-    text.TextColor3 = Color3.fromRGB(255, 255, 255)
+    text.Font = Enum.Font.GothamBlack
+    text.TextColor3 = Color3.fromRGB(255, 50, 50)
+    text.TextStrokeTransparency = 0
+    text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     text.Text = message
     text.Parent = frame
 
+    -- Slide in animation
+    local tweenService = game:GetService("TweenService")
+    local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+    local tween = tweenService:Create(frame, tweenInfo, {Position = UDim2.new(0.15, 0, 0.4, 0)})
+    tween:Play()
+
+    -- Shake effect
+    local elapsed = 0
+    local shakeMagnitude = 5
+    local runConnection
+    runConnection = RunService.RenderStepped:Connect(function(dt)
+        elapsed = elapsed + dt
+        frame.Position = UDim2.new(0.15, math.sin(elapsed * 30) * shakeMagnitude, 0.4, 0)
+    end)
+
+    -- Remove GUI after DISPLAY_TIME
     task.delay(DISPLAY_TIME, function()
-        if gui then gui:Destroy() end
+        if runConnection then runConnection:Disconnect() end
+        if gui then
+            gui:Destroy()
+        end
     end)
 end
 
--- Listen to server broadcast
 sendOverclockMessage.OnClientEvent:Connect(displayMessage)
