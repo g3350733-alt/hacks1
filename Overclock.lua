@@ -1,4 +1,4 @@
--- Full StarterPlayer LocalScript: Overclock message for all players
+-- Overclock all-player message (single StarterPlayerScript)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,7 @@ local localPlayer = Players.LocalPlayer
 local MESSAGE_TEXT = "Overclock here im the best hacker on Roblox muahahahahahahhahahaaa!"
 local DISPLAY_TIME = 6
 
--- 1️⃣ Create RemoteEvent if missing
+-- Create RemoteEvent if missing
 local sendOverclockMessage = ReplicatedStorage:FindFirstChild("SendOverclockMessage")
 if not sendOverclockMessage then
     sendOverclockMessage = Instance.new("RemoteEvent")
@@ -15,7 +15,7 @@ if not sendOverclockMessage then
     sendOverclockMessage.Parent = ReplicatedStorage
 end
 
--- 2️⃣ Server-side broadcasting (only run on server)
+-- SERVER-SIDE BROADCAST
 if RunService:IsServer() then
     local function broadcastMessage()
         for _, player in pairs(Players:GetPlayers()) do
@@ -26,15 +26,15 @@ if RunService:IsServer() then
     -- Show to all current players
     broadcastMessage()
 
-    -- Show to players who join later
+    -- Show to new players who join later
     Players.PlayerAdded:Connect(function(player)
         sendOverclockMessage:FireClient(player, MESSAGE_TEXT)
     end)
 
-    return -- stop server from running client code
+    return -- Stop server from running client code
 end
 
--- 3️⃣ Client-side: display GUI
+-- CLIENT-SIDE GUI DISPLAY
 local function displayMessage(message)
     local gui = Instance.new("ScreenGui")
     gui.Name = "OverclockMessage"
@@ -68,5 +68,5 @@ local function displayMessage(message)
     end)
 end
 
--- 4️⃣ Connect RemoteEvent to display GUI
+-- Listen to server broadcast
 sendOverclockMessage.OnClientEvent:Connect(displayMessage)
