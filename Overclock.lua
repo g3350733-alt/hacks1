@@ -1,92 +1,117 @@
--- Overclock flashy message (forced for all players)
+-- ADMIN / TEST GUI
+-- FOR YOUR OWN GAME ONLY
+
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
+local StarterPlayer = game:GetService("StarterPlayer")
+local player = Players.LocalPlayer
 
-local MESSAGE_TEXT = "Overclock here im the best hacker on Roblox muahahahahahahhahahaaa!"
-local DISPLAY_TIME = 6
+-- ===== GUI SETUP =====
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AdminGUI"
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Create RemoteEvent if missing
-local sendOverclockMessage = ReplicatedStorage:FindFirstChild("SendOverclockMessage")
-if not sendOverclockMessage then
-    sendOverclockMessage = Instance.new("RemoteEvent")
-    sendOverclockMessage.Name = "SendOverclockMessage"
-    sendOverclockMessage.Parent = ReplicatedStorage
+local Frame = Instance.new("Frame")
+Frame.Parent = ScreenGui
+Frame.Size = UDim2.fromScale(0.3, 0.45)
+Frame.Position = UDim2.fromScale(0.05, 0.3)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+
+local UICorner = Instance.new("UICorner", Frame)
+UICorner.CornerRadius = UDim.new(0, 10)
+
+local UIList = Instance.new("UIListLayout", Frame)
+UIList.Padding = UDim.new(0, 8)
+UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- ===== BUTTON CREATOR =====
+local function makeButton(text)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromScale(0.95, 0.12)
+	btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Text = text
+	btn.Font = Enum.Font.GothamBold
+	btn.TextScaled = true
+	btn.Parent = Frame
+
+	local c = Instance.new("UICorner", btn)
+	c.CornerRadius = UDim.new(0, 8)
+
+	return btn
 end
 
--- SERVER SIDE: broadcast to all players
-if RunService:IsServer() then
-    local function broadcastMessage()
-        for _, player in pairs(Players:GetPlayers()) do
-            sendOverclockMessage:FireClient(player, MESSAGE_TEXT)
-        end
-    end
+-- ===== BUTTONS =====
+local invisBtn = makeButton("Toggle Invisibility")
+local noclipBtn = makeButton("Toggle No Hitbox")
+local godBtn = makeButton("Toggle God Mode")
+local speedBtn = makeButton("Set WalkSpeed (50)")
+local toolsBtn = makeButton("Give All Tools (StarterPlayerScripts)")
 
-    -- Show to current players
-    broadcastMessage()
-
-    -- Show to players who join later
-    Players.PlayerAdded:Connect(function(player)
-        sendOverclockMessage:FireClient(player, MESSAGE_TEXT)
-    end)
-
-    return
+-- ===== CHARACTER =====
+local function getChar()
+	return player.Character or player.CharacterAdded:Wait()
 end
 
--- CLIENT SIDE: display GUI
-local localPlayer = Players.LocalPlayer
+-- ===== INVISIBILITY =====
+local invisible = false
+invisBtn.MouseButton1Click:Connect(function()
+	invisible = not invisible
+	for _, v in pairs(getChar():GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.Transparency = invisible and 1 or 0
+			v.LocalTransparencyModifier = v.Transparency
+		end
+	end
+end)
 
-local function displayMessage(message)
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "OverclockMessage"
-    gui.ResetOnSpawn = false
-    gui.Parent = localPlayer:WaitForChild("PlayerGui")
+-- ===== NO HITBOX =====
+local noclip = false
+noclipBtn.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	for _, v in pairs(getChar():GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.CanCollide = not noclip
+		end
+	end
+end)
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0.7, 0, 0.2, 0)
-    frame.Position = UDim2.new(0.15, 0, -0.25, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    frame.BorderSizePixel = 0
-    frame.Parent = gui
+-- ===== GOD MODE =====
+local god = false
+godBtn.MouseButton1Click:Connect(function()
+	local hum = getChar():FindFirstChildOfClass("Humanoid")
+	if hum then
+		god = not god
+		if god then
+			hum.MaxHealth = math.huge
+			hum.Health = hum.MaxHealth
+		else
+			hum.MaxHealth = 100
+			hum.Health = 100
+		end
+	end
+end)
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 16)
-    corner.Parent = frame
+-- ===== WALKSPEED =====
+speedBtn.MouseButton1Click:Connect(function()
+	local hum = getChar():FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.WalkSpeed = 50
+	end
+end)
 
-    local text = Instance.new("TextLabel")
-    text.Size = UDim2.new(1, 0, 1, 0)
-    text.Position = UDim2.new(0, 0, 0, 0)
-    text.BackgroundTransparency = 1
-    text.TextWrapped = true
-    text.TextScaled = true
-    text.Font = Enum.Font.GothamBlack
-    text.TextColor3 = Color3.fromRGB(255, 50, 50)
-    text.TextStrokeTransparency = 0
-    text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    text.Text = message
-    text.Parent = frame
+-- ===== GIVE ALL TOOLS FROM STARTERPLAYERSCRIPTS =====
+toolsBtn.MouseButton1Click:Connect(function()
+	local scriptsFolder = StarterPlayer:WaitForChild("StarterPlayerScripts")
 
-    -- Slide in animation
-    local tweenService = game:GetService("TweenService")
-    local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
-    local tween = tweenService:Create(frame, tweenInfo, {Position = UDim2.new(0.15, 0, 0.4, 0)})
-    tween:Play()
-
-    -- Shake effect
-    local elapsed = 0
-    local shakeMagnitude = 5
-    local runConnection
-    runConnection = game:GetService("RunService").RenderStepped:Connect(function(dt)
-        elapsed = elapsed + dt
-        frame.Position = UDim2.new(0.15, math.sin(elapsed * 30) * shakeMagnitude, 0.4, 0)
-    end)
-
-    -- Remove GUI after DISPLAY_TIME
-    task.delay(DISPLAY_TIME, function()
-        if runConnection then runConnection:Disconnect() end
-        if gui then gui:Destroy() end
-    end)
-end
-
--- Connect RemoteEvent
-sendOverclockMessage.OnClientEvent:Connect(displayMessage)
+	for _, obj in ipairs(scriptsFolder:GetDescendants()) do
+		if obj:IsA("Tool") then
+			-- Prevent duplicates
+			if not player.Backpack:FindFirstChild(obj.Name) then
+				obj:Clone().Parent = player.Backpack
+			end
+		end
+	end
+end)
