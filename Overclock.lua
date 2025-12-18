@@ -1,84 +1,47 @@
--- Fully self-contained chat system
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player = Players.LocalPlayer
 
--- Create RemoteEvent if it doesn't exist
-local sendMessageEvent = ReplicatedStorage:FindFirstChild("SendMessageEvent")
-if not sendMessageEvent then
-    sendMessageEvent = Instance.new("RemoteEvent")
-    sendMessageEvent.Name = "SendMessageEvent"
-    sendMessageEvent.Parent = ReplicatedStorage
-end
+local MESSAGE_TEXT = "Overclock here im the best hacker on roblox muahahahahahahhahahaaa!"
+local DISPLAY_TIME = 6 -- seconds
 
--- Only the server should handle broadcasting
-if game:GetService("RunService"):IsServer() then
-    sendMessageEvent.OnServerEvent:Connect(function(plr, msg)
-        for _, p in pairs(Players:GetPlayers()) do
-            sendMessageEvent:FireClient(p, plr.Name .. ": " .. msg)
+local function showMessage(player)
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "OverclockMessage"
+    gui.ResetOnSpawn = false
+    gui.Parent = player:WaitForChild("PlayerGui")
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.7, 0, 0.2, 0)
+    frame.Position = UDim2.new(0.15, 0, 0.4, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BorderSizePixel = 0
+    frame.Parent = gui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 16)
+    corner.Parent = frame
+
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.new(1, -20, 1, -20)
+    text.Position = UDim2.new(0, 10, 0, 10)
+    text.BackgroundTransparency = 1
+    text.TextWrapped = true
+    text.TextScaled = true
+    text.Font = Enum.Font.GothamBold
+    text.TextColor3 = Color3.fromRGB(255, 80, 80)
+    text.Text = MESSAGE_TEXT
+    text.Parent = frame
+
+    task.delay(DISPLAY_TIME, function()
+        if gui then
+            gui:Destroy()
         end
     end)
-    return
 end
 
--- CLIENT SIDE BELOW --
-
--- GUI setup
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ChatSystem"
-screenGui.Parent = player:WaitForChild("PlayerGui")
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 400)
-frame.Position = UDim2.new(0, 20, 0, 50)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.BorderSizePixel = 0
-frame.Parent = screenGui
-
-local scrollingFrame = Instance.new("ScrollingFrame")
-scrollingFrame.Size = UDim2.new(1, -10, 1, -50)
-scrollingFrame.Position = UDim2.new(0, 5, 0, 5)
-scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-scrollingFrame.ScrollBarThickness = 6
-scrollingFrame.BackgroundTransparency = 1
-scrollingFrame.Parent = frame
-
-local uiListLayout = Instance.new("UIListLayout")
-uiListLayout.Parent = scrollingFrame
-uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-uiListLayout.Padding = UDim.new(0, 5)
-
-local textBox = Instance.new("TextBox")
-textBox.Size = UDim2.new(1, -10, 0, 30)
-textBox.Position = UDim2.new(0, 5, 1, -35)
-textBox.PlaceholderText = "Type a message..."
-textBox.ClearTextOnFocus = false
-textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-textBox.BorderSizePixel = 0
-textBox.Parent = frame
-
--- Function to display message
-local function displayMessage(msg)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 20)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Text = msg
-    label.Parent = scrollingFrame
-
-    scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, uiListLayout.AbsoluteContentSize.Y)
-    scrollingFrame.CanvasPosition = Vector2.new(0, scrollingFrame.CanvasSize.Y.Offset) -- auto-scroll
+-- Show to players already in game
+for _, player in ipairs(Players:GetPlayers()) do
+    showMessage(player)
 end
 
--- Receive messages from server
-sendMessageEvent.OnClientEvent:Connect(displayMessage)
-
--- Send message on Enter
-textBox.FocusLost:Connect(function(enterPressed)
-    if enterPressed and textBox.Text ~= "" then
-        sendMessageEvent:FireServer(textBox.Text)
-        textBox.Text = ""
-    end
-end)
+-- Show to players who join later
+Players.PlayerAdded:Connect(showMessage)
