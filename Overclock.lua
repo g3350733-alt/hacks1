@@ -1,29 +1,57 @@
+-- Full StarterPlayer LocalScript: Overclock message for all players
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
 
 local MESSAGE_TEXT = "Overclock here im the best hacker on Roblox muahahahahahahhahahaaa!"
-local DISPLAY_TIME = 6 -- seconds
+local DISPLAY_TIME = 6
 
-local function showMessage(player)
-    -- Create ScreenGui
+-- 1️⃣ Create RemoteEvent if missing
+local sendOverclockMessage = ReplicatedStorage:FindFirstChild("SendOverclockMessage")
+if not sendOverclockMessage then
+    sendOverclockMessage = Instance.new("RemoteEvent")
+    sendOverclockMessage.Name = "SendOverclockMessage"
+    sendOverclockMessage.Parent = ReplicatedStorage
+end
+
+-- 2️⃣ Server-side broadcasting (only run on server)
+if RunService:IsServer() then
+    local function broadcastMessage()
+        for _, player in pairs(Players:GetPlayers()) do
+            sendOverclockMessage:FireClient(player, MESSAGE_TEXT)
+        end
+    end
+
+    -- Show to all current players
+    broadcastMessage()
+
+    -- Show to players who join later
+    Players.PlayerAdded:Connect(function(player)
+        sendOverclockMessage:FireClient(player, MESSAGE_TEXT)
+    end)
+
+    return -- stop server from running client code
+end
+
+-- 3️⃣ Client-side: display GUI
+local function displayMessage(message)
     local gui = Instance.new("ScreenGui")
     gui.Name = "OverclockMessage"
     gui.ResetOnSpawn = false
-    gui.Parent = player:WaitForChild("PlayerGui")
+    gui.Parent = localPlayer:WaitForChild("PlayerGui")
 
-    -- Create Frame
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0.7, 0, 0.2, 0) -- width 70%, height 20%
-    frame.Position = UDim2.new(0.15, 0, 0.4, 0) -- centered
+    frame.Size = UDim2.new(0.7, 0, 0.2, 0)
+    frame.Position = UDim2.new(0.15, 0, 0.4, 0)
     frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     frame.BorderSizePixel = 0
     frame.Parent = gui
 
-    -- Rounded corners
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 16)
     corner.Parent = frame
 
-    -- TextLabel
     local text = Instance.new("TextLabel")
     text.Size = UDim2.new(1, 0, 1, 0)
     text.Position = UDim2.new(0, 0, 0, 0)
@@ -31,22 +59,14 @@ local function showMessage(player)
     text.TextWrapped = true
     text.TextScaled = true
     text.Font = Enum.Font.GothamBold
-    text.TextColor3 = Color3.fromRGB(255, 255, 255) -- white text
-    text.Text = MESSAGE_TEXT
+    text.TextColor3 = Color3.fromRGB(255, 255, 255)
+    text.Text = message
     text.Parent = frame
 
-    -- Auto-remove after DISPLAY_TIME
     task.delay(DISPLAY_TIME, function()
-        if gui then
-            gui:Destroy()
-        end
+        if gui then gui:Destroy() end
     end)
 end
 
--- Show to players already in game
-for _, player in ipairs(Players:GetPlayers()) do
-    showMessage(player)
-end
-
--- Show to players who join later
-Players.PlayerAdded:Connect(showMessage)
+-- 4️⃣ Connect RemoteEvent to display GUI
+sendOverclockMessage.OnClientEvent:Connect(displayMessage)
